@@ -27,8 +27,9 @@ original words distinguishable from generated summaries.
 
 Memory Loom is an early, usable MVP designed for:
 
-- one interviewer;
-- one elder profile;
+- several family interviewers and viewers;
+- one private family space with multiple invited members;
+- multiple elder profiles;
 - a private, owner-only deployment;
 - short interviews of roughly 15–30 minutes.
 
@@ -38,17 +39,20 @@ current data model does not isolate records by account.
 ### Core workflow
 
 1. Create an elder profile.
-2. Choose a theme and interview duration.
-3. Generate a gentle interview plan.
-4. Record the conversation on a phone.
-5. Review and correct the live transcript.
-6. Confirm the summary and story cards.
-7. Browse stories on a timeline or search the archive.
-8. Export everything, including recordings, as a ZIP file.
+2. Invite family members as contributors or viewers.
+3. Choose a theme and interview duration.
+4. Generate a gentle interview plan.
+5. Record the conversation on a phone.
+6. Review and correct the live transcript.
+7. Confirm the summary and story cards.
+8. Browse stories on a timeline or search the archive.
+9. Export everything, including recordings, as a ZIP file.
 
 ### Features
 
 - Theme-based interview planning
+- A private family space with admin, contributor, and viewer roles
+- Multiple elder profiles with separate interviews and story timelines
 - Adaptive follow-up prompts during the conversation
 - Mobile browser audio recording
 - Live Chinese speech recognition when supported by the browser
@@ -152,7 +156,7 @@ Before making the app public or inviting multiple families:
 
 - Browser speech recognition support and quality vary by device.
 - Long recordings are not resumable and are uploaded only after the interview.
-- The current MVP supports one elder profile.
+- Site access must still be granted to each invited member separately.
 - Dates, places, and people are not yet normalized into dedicated entities.
 - There is no collaborative family review or invitation flow.
 - AI-generated organization may be incomplete and must be reviewed.
@@ -196,8 +200,9 @@ Memory Loom（岁月留声）帮助一位家庭成员采访一位长辈，把一
 
 这是一个可以真实使用的早期 MVP，当前面向：
 
-- 一位采访者；
-- 一位长辈档案；
+- 一位家庭管理员；
+- 一个支持邀请多位成员的私人家庭空间；
+- 多位长辈档案；
 - 仅本人可访问的私人部署；
 - 每次约 15～30 分钟的短访谈。
 
@@ -207,17 +212,20 @@ Memory Loom（岁月留声）帮助一位家庭成员采访一位长辈，把一
 ### 核心流程
 
 1. 建立长辈档案；
-2. 选择访谈主题和时长；
-3. 生成温和的访谈方案；
-4. 使用手机录制谈话；
-5. 校正实时生成的文字草稿；
-6. 确认摘要和故事卡；
-7. 通过时间线或搜索重新查看；
-8. 将文字和全部录音打包导出为 ZIP。
+2. 邀请家人作为记录者或查看者；
+3. 选择访谈主题和时长；
+4. 生成温和的访谈方案；
+5. 使用手机录制谈话；
+6. 校正实时生成的文字草稿；
+7. 确认摘要和故事卡；
+8. 通过时间线或搜索重新查看；
+9. 将文字和全部录音打包导出为 ZIP。
 
 ### 当前功能
 
 - 按主题生成访谈提纲
+- 私人家庭空间，以及管理员、记录者、家庭成员三种角色
+- 支持多位长辈，并分别展示访谈和故事时间线
 - 根据谈话内容提示追问方向
 - 手机浏览器录音
 - 浏览器支持时进行中文实时语音识别
@@ -316,7 +324,7 @@ pnpm db:generate  # 数据库结构变化后生成迁移
 
 - 不同手机和浏览器的语音识别能力、质量存在差异；
 - 长录音不支持断点续传，当前在访谈结束后统一上传；
-- 首版仅支持一位长辈；
+- 邀请成员后，仍需要单独为其开放私人站点访问权限；
 - 时间、地点和人物还没有拆分成独立实体；
 - 暂无家庭成员邀请和协作校对；
 - AI 整理可能遗漏或误解内容，必须人工确认；

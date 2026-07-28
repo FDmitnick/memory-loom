@@ -1,6 +1,24 @@
 import { sql } from "drizzle-orm";
 import { integer, sqliteTable, text } from "drizzle-orm/sqlite-core";
 
+export const familySpaces = sqliteTable("family_spaces", {
+  id: text("id").primaryKey(),
+  name: text("name").notNull(),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
+export const familyMembers = sqliteTable("family_members", {
+  id: text("id").primaryKey(),
+  familyId: text("family_id").notNull(),
+  email: text("email").notNull().unique(),
+  name: text("name").notNull(),
+  role: text("role").notNull().default("viewer"),
+  status: text("status").notNull().default("invited"),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  lastSeenAt: text("last_seen_at"),
+});
+
 export const elders = sqliteTable("elders", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

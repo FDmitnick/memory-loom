@@ -1,4 +1,5 @@
 import { getRuntimeEnv } from "@/db/memory-store";
+import { canEdit, getFamilyViewer } from "@/db/family-access";
 import { simplifyData, toSimplified } from "@/lib/chinese";
 
 type AgentRequest = {
@@ -152,6 +153,10 @@ async function callOpenAI(body: AgentRequest) {
 
 export async function POST(request: Request) {
   try {
+    const viewer = await getFamilyViewer(request);
+    if (!viewer || !canEdit(viewer.role)) {
+      return Response.json({ error: "你没有创建或整理访谈的权限" }, { status: 403 });
+    }
     const body = simplifyData((await request.json()) as AgentRequest);
     const aiResult = await callOpenAI(body).catch(() => null);
     if (aiResult) {

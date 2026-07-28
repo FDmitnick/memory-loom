@@ -18,6 +18,22 @@ export function ensureMemorySchema() {
   const { DB } = getRuntimeEnv();
   ready = (async () => {
     await DB.batch([
+      DB.prepare(`CREATE TABLE IF NOT EXISTS family_spaces (
+        id TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`),
+      DB.prepare(`CREATE TABLE IF NOT EXISTS family_members (
+        id TEXT PRIMARY KEY,
+        family_id TEXT NOT NULL,
+        email TEXT NOT NULL UNIQUE,
+        name TEXT NOT NULL,
+        role TEXT NOT NULL DEFAULT 'viewer',
+        status TEXT NOT NULL DEFAULT 'invited',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        last_seen_at TEXT
+      )`),
       DB.prepare(`CREATE TABLE IF NOT EXISTS elders (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -59,6 +75,9 @@ export function ensureMemorySchema() {
       ),
       DB.prepare(
         "CREATE INDEX IF NOT EXISTS stories_interview_idx ON stories(interview_id, created_at)",
+      ),
+      DB.prepare(
+        "CREATE INDEX IF NOT EXISTS family_members_family_idx ON family_members(family_id, created_at)",
       ),
     ]);
   })();

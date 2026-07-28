@@ -4,12 +4,13 @@ import test from "node:test";
 import OpenCC from "opencc-js";
 
 test("builds the family memory application", async () => {
-  const [page, layout, app, css, archiveApi] = await Promise.all([
+  const [page, layout, app, css, archiveApi, memoryStore] = await Promise.all([
     readFile(new URL("../app/page.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/layout.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/MemoryApp.tsx", import.meta.url), "utf8"),
     readFile(new URL("../app/globals.css", import.meta.url), "utf8"),
     readFile(new URL("../app/api/archive/route.ts", import.meta.url), "utf8"),
+    readFile(new URL("../db/memory-store.ts", import.meta.url), "utf8"),
     access(new URL("../dist/server/index.js", import.meta.url)),
   ]);
 
@@ -22,7 +23,14 @@ test("builds the family memory application", async () => {
   assert.match(app, /简体/);
   assert.match(app, /繁體/);
   assert.match(app, /toSimplified\(result\[0\]\.transcript\)/);
+  assert.match(app, /共同守护一份记忆/);
+  assert.match(app, /邀请谁一起记录/);
+  assert.match(app, /新增长辈/);
   assert.match(archiveApi, /simplifyData/);
+  assert.match(archiveApi, /invite-member/);
+  assert.match(archiveApi, /只有管理员可以邀请成员/);
+  assert.match(memoryStore, /CREATE TABLE IF NOT EXISTS family_members/);
+  assert.match(memoryStore, /CREATE TABLE IF NOT EXISTS family_spaces/);
   assert.match(css, /--green:\s*#315f4b/);
   assert.doesNotMatch(`${page}\n${layout}`, /codex-preview|Your site is taking shape/);
 });

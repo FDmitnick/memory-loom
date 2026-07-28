@@ -1,10 +1,15 @@
 import { ensureMemorySchema, getRuntimeEnv } from "@/db/memory-store";
+import { canEdit, getFamilyViewer } from "@/db/family-access";
 
 const MAX_AUDIO_BYTES = 24 * 1024 * 1024;
 
 export async function POST(request: Request) {
   try {
     await ensureMemorySchema();
+    const viewer = await getFamilyViewer(request);
+    if (!viewer || !canEdit(viewer.role)) {
+      return Response.json({ error: "你没有保存录音的权限" }, { status: 403 });
+    }
     const form = await request.formData();
     const audio = form.get("audio");
     const interviewId = String(form.get("interviewId") ?? "").slice(0, 80);
@@ -39,6 +44,8 @@ export async function POST(request: Request) {
 
 export async function GET(request: Request) {
   try {
+    const viewer = await getFamilyViewer(request);
+    if (!viewer) return new Response("Forbidden", { status: 403 });
     const key = new URL(request.url).searchParams.get("key");
     if (!key || !key.startsWith("interviews/")) {
       return new Response("Not found", { status: 404 });

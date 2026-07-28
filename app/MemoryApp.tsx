@@ -18,7 +18,7 @@ import {
   type ChineseScript,
 } from "@/lib/chinese";
 
-type Screen = "home" | "profile" | "plan" | "interview" | "review" | "archive" | "settings";
+type Screen = "home" | "family" | "profile" | "plan" | "interview" | "review" | "archive" | "settings";
 type Elder = {
   id: string;
   name: string;
@@ -51,7 +51,21 @@ type Story = {
   people: string;
   quote: string;
 };
+type FamilyMember = {
+  id: string;
+  email: string;
+  name: string;
+  role: "admin" | "contributor" | "viewer";
+  status: "active" | "invited";
+  created_at: string;
+  last_seen_at?: string;
+};
+type FamilyViewer = Pick<FamilyMember, "id" | "email" | "name" | "role">;
 type ArchiveData = {
+  family: { id: string; name: string } | null;
+  members: FamilyMember[];
+  viewer: FamilyViewer | null;
+  elders: Array<Record<string, unknown>>;
   elder: Record<string, unknown> | null;
   interviews: Interview[];
   stories: Array<Record<string, unknown> & {
@@ -163,6 +177,12 @@ function formatTimer(seconds: number) {
   return `${String(Math.floor(seconds / 60)).padStart(2, "0")}:${String(seconds % 60).padStart(2, "0")}`;
 }
 
+function roleLabel(role: FamilyMember["role"]) {
+  if (role === "admin") return "管理员";
+  if (role === "contributor") return "记录者";
+  return "家庭成员";
+}
+
 function downloadBlob(blob: Blob, filename: string) {
   const url = URL.createObjectURL(blob);
   const anchor = document.createElement("a");
@@ -176,9 +196,23 @@ export default function MemoryApp() {
   const [screen, setScreen] = useState<Screen>("home");
   const [script, setScript] = useState<ChineseScript>("simplified");
   const [scriptPreferenceLoaded, setScriptPreferenceLoaded] = useState(false);
-  const [archive, setArchive] = useState<ArchiveData>({ elder: null, interviews: [], stories: [] });
+  const [archive, setArchive] = useState<ArchiveData>({
+    family: null,
+    members: [],
+    viewer: null,
+    elders: [],
+    elder: null,
+    interviews: [],
+    stories: [],
+  });
   const [elder, setElder] = useState<Elder | null>(null);
   const [elderDraft, setElderDraft] = useState<Elder>(EMPTY_ELDER);
+  const [inviteOpen, setInviteOpen] = useState(false);
+  const [inviteDraft, setInviteDraft] = useState({
+    name: "",
+    email: "",
+    role: "viewer" as "contributor" | "viewer",
+  });
   const [loading, setLoading] = useState(true);
   const [busy, setBusy] = useState(false);
   const [notice, setNotice] = useState("");
@@ -214,9 +248,15 @@ export default function MemoryApp() {
       const data = (await response.json()) as ArchiveData & { error?: string };
       if (!response.ok) throw new Error(data.error || "读取失败");
       setArchive(data);
-      const profile = readElder(data.elder);
-      setElder(profile);
-      if (profile) setElderDraft(profile);
+      const profiles = (data.elders?.length ? data.elders : [data.elder])
+        .map((item) => readElder(item))
+        .filter((item): item is Elder => Boolean(item));
+      setElder((current) => {
+        const profile =
+          profiles.find((item) => item.id === current?.id) ?? profiles[0] ?? null;
+        if (profile) setElderDraft(profile);
+        return profile;
+      });
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "档案读取失败");
     } finally {
@@ -247,15 +287,27 @@ export default function MemoryApp() {
     recognitionRef.current?.stop();
   }, []);
 
+  const elderInterviews = useMemo(
+    () => archive.interviews.filter((item) => item.elder_id === elder?.id),
+    [archive.interviews, elder?.id],
+  );
+  const elderStoryRows = useMemo(() => {
+    const interviewIds = new Set(elderInterviews.map((item) => item.id));
+    return archive.stories.filter((story) => interviewIds.has(story.interview_id));
+  }, [archive.stories, elderInterviews]);
   const filteredStories = useMemo(() => {
-    const stories = archive.stories.map(readStory);
+    const stories = elderStoryRows.map(readStory);
     if (!search.trim()) return stories;
     const keyword = toSimplified(search.trim()).toLowerCase();
     return stories.filter((story) =>
       [story.title, story.body, story.timeLabel, story.location, story.people, story.quote]
         .join(" ").toLowerCase().includes(keyword),
     );
-  }, [archive.stories, search]);
+  }, [elderStoryRows, search]);
+
+  const canManageFamily = archive.viewer?.role === "admin";
+  const canContribute =
+    archive.viewer?.role === "admin" || archive.viewer?.role === "contributor";
 
   const liveSuggestions = useMemo(() => {
     const text = `${transcript} ${interimTranscript}`;
@@ -295,6 +347,72 @@ export default function MemoryApp() {
       setError(saveError instanceof Error ? saveError.message : "保存失败");
     } finally {
       setBusy(false);
+    }
+  }
+
+  function selectElder(profile: Elder) {
+    setElder(profile);
+    setElderDraft(profile);
+    setSearch("");
+    setSelectedStory(null);
+    setScreen("home");
+    flash(`已切换到${profile.name}的档案`);
+  }
+
+  function createElder() {
+    setElderDraft(EMPTY_ELDER);
+    setScreen("profile");
+  }
+
+  async function inviteMember(event: React.FormEvent) {
+    event.preventDefault();
+    setBusy(true);
+    setError("");
+    try {
+      const response = await fetch("/api/archive", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "invite-member", ...inviteDraft }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error || "邀请保存失败");
+      await loadArchive();
+      setInviteDraft({ name: "", email: "", role: "viewer" });
+      setInviteOpen(false);
+      flash("成员邀请已加入家庭空间");
+    } catch (inviteError) {
+      setError(inviteError instanceof Error ? inviteError.message : "邀请保存失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function removeMember(member: FamilyMember) {
+    if (!window.confirm(`确定移除${member.name}吗？`)) return;
+    setBusy(true);
+    try {
+      const response = await fetch("/api/archive", {
+        method: "POST",
+        headers: { "content-type": "application/json" },
+        body: JSON.stringify({ action: "remove-member", memberId: member.id }),
+      });
+      const result = (await response.json()) as { error?: string };
+      if (!response.ok) throw new Error(result.error || "移除失败");
+      await loadArchive();
+      flash("家庭成员已移除");
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : "移除失败");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyFamilyLink() {
+    try {
+      await navigator.clipboard.writeText(window.location.origin);
+      flash("家庭空间链接已复制");
+    } catch {
+      setError("复制失败，请从浏览器地址栏复制链接。");
     }
   }
 
@@ -487,7 +605,9 @@ export default function MemoryApp() {
       const files: Record<string, Uint8Array> = {
         "家庭记忆档案.json": strToU8(JSON.stringify({
           exportedAt: new Date().toISOString(),
-          elder: readElder(archive.elder),
+          family: archive.family,
+          elders: archive.elders.map(readElder),
+          members: archive.members,
           interviews: archive.interviews,
           stories: archive.stories.map(readStory),
         }, null, 2)),
@@ -501,7 +621,7 @@ export default function MemoryApp() {
           new Uint8Array(await response.arrayBuffer());
       }
       const zipped = zipSync(files, { level: 0 });
-      const safeName = elder?.name ? `${elder.name}的家庭记忆档案` : "家庭记忆档案";
+      const safeName = archive.family?.name || "家庭记忆档案";
       downloadBlob(new Blob([zipped as BlobPart], { type: "application/zip" }), `${safeName}.zip`);
       flash("完整档案已导出");
     } catch {
@@ -518,7 +638,13 @@ export default function MemoryApp() {
     try {
       const response = await fetch("/api/archive", { method: "DELETE" });
       if (!response.ok) throw new Error("删除失败");
-      setArchive({ elder: null, interviews: [], stories: [] });
+      setArchive((current) => ({
+        ...current,
+        elders: [],
+        elder: null,
+        interviews: [],
+        stories: [],
+      }));
       setElder(null);
       setElderDraft(EMPTY_ELDER);
       setScreen("home");
@@ -578,9 +704,24 @@ export default function MemoryApp() {
               繁體
             </button>
           </div>
-          <button className="profile-chip" onClick={() => {
-            setElderDraft(elder ?? EMPTY_ELDER);
-            navigate("profile");
+          <button className="family-chip" onClick={() => navigate("family")}>
+            <span className="mini-avatar-stack" aria-hidden="true">
+              {archive.members.slice(0, 3).map((member) => (
+                <i key={member.id}>{member.name.slice(0, 1)}</i>
+              ))}
+            </span>
+            <span className="family-chip-copy">
+              <strong>{archive.family?.name || "家庭空间"}</strong>
+              <small>{archive.members.length}位成员</small>
+            </span>
+          </button>
+          <button className="profile-chip elder-chip" onClick={() => {
+            if (canContribute) {
+              setElderDraft(elder ?? EMPTY_ELDER);
+              navigate("profile");
+            } else {
+              navigate("archive");
+            }
           }}>
             <span>{elder?.name?.slice(0, 1) || "+"}</span>{elder ? elder.name : "建立档案"}
           </button>
@@ -596,45 +737,129 @@ export default function MemoryApp() {
             <p className="eyebrow">把“以后再问”，变成今天好好听</p>
             <h1>{elder ? `陪${elder.name}，慢慢聊一段过去` : "听见一个人，也留住一个家"}</h1>
             <p className="hero-copy">每次只聊一个主题。录音、原话和故事会被一起保存，任何问题都可以跳过。</p>
-            <button className="primary-button hero-button" onClick={() => navigate(elder ? "plan" : "profile")}>
-              <span className="round-icon">●</span>{elder ? "开始一次访谈" : "先建立长辈档案"}
+            <button className="primary-button hero-button" onClick={() => navigate(
+              canContribute ? (elder ? "plan" : "profile") : "archive",
+            )}>
+              <span className="round-icon">●</span>{canContribute
+                ? (elder ? "开始一次访谈" : "先建立长辈档案")
+                : "查看家庭档案"}
             </button>
           </div>
           <div className="today-card">
             <div><span className="section-kicker">今天可以聊</span><h2>小时候住过的家</h2>
               <p>从一扇门、一顿饭、一个院子开始，具体的东西最容易唤起记忆。</p></div>
             <button className="soft-button" onClick={() => {
-              setTheme("童年与故乡"); navigate(elder ? "plan" : "profile");
-            }}>用这个主题</button>
+              setTheme("童年与故乡");
+              navigate(canContribute ? (elder ? "plan" : "profile") : "archive");
+            }}>{canContribute ? "用这个主题" : "查看故事"}</button>
           </div>
           <div className="stats-row">
-            <div><strong>{archive.interviews.length}</strong><span>次访谈</span></div>
-            <div><strong>{archive.stories.length}</strong><span>段故事</span></div>
-            <div><strong>{archive.interviews.reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0)}</strong><span>分钟记忆</span></div>
+            <div><strong>{elderInterviews.length}</strong><span>次访谈</span></div>
+            <div><strong>{elderStoryRows.length}</strong><span>段故事</span></div>
+            <div><strong>{elderInterviews.reduce((sum, item) => sum + Number(item.duration_minutes || 0), 0)}</strong><span>分钟记忆</span></div>
           </div>
-          {archive.stories.length > 0 && <div className="recent-section">
+          {elderStoryRows.length > 0 && <div className="recent-section">
             <div className="section-heading"><div><span className="section-kicker">最近留下的</span><h2>家庭故事</h2></div>
               <button onClick={() => navigate("archive")}>查看全部</button></div>
             <button className="story-preview" onClick={() => {
-              setSelectedStory(readStory(archive.stories[0])); setScreen("archive");
-            }}><span>{String(archive.stories[0].time_label ?? "待确认")}</span>
-              <h3>{archive.stories[0].title}</h3><p>{archive.stories[0].body}</p></button>
+              setSelectedStory(readStory(elderStoryRows[0])); setScreen("archive");
+            }}><span>{String(elderStoryRows[0].time_label ?? "待确认")}</span>
+              <h3>{elderStoryRows[0].title}</h3><p>{elderStoryRows[0].body}</p></button>
           </div>}
+        </section>
+      )}
+
+      {screen === "family" && (
+        <section className="page family-page">
+          <div className="family-page-heading">
+            <div><span className="section-kicker">共同守护一份记忆</span>
+              <h1>{archive.family?.name || "我们的家庭记忆"}</h1>
+              <p>邀请家人一起采访、校对和阅读。每个人只拥有与角色相符的权限。</p></div>
+            <button className="text-button" onClick={() => navigate("settings")}>隐私与设置</button>
+          </div>
+
+          <div className="family-overview-card">
+            <div className="large-avatar-stack">
+              {archive.members.slice(0, 4).map((member, index) => (
+                <span key={member.id} style={{ zIndex: 5 - index }}>{member.name.slice(0, 1)}</span>
+              ))}
+            </div>
+            <div><strong>{archive.members.length} 位家人正在共同保存</strong>
+              <p>{archive.elders.length} 位长辈 · {archive.interviews.length} 次访谈 · {archive.stories.length} 段故事</p></div>
+            {canManageFamily && <button className="soft-button" onClick={() => setInviteOpen((open) => !open)}>
+              {inviteOpen ? "收起" : "＋ 邀请家人"}</button>}
+          </div>
+
+          {inviteOpen && <form className="invite-card" onSubmit={inviteMember}>
+            <div><span className="section-kicker">添加家庭成员</span><h2>邀请谁一起记录？</h2>
+              <p>先把对方加入家庭名单，再为对应邮箱开放这个私人站点。</p></div>
+            <label>称呼<input value={inviteDraft.name} required placeholder="例如：姐姐"
+              onChange={(event) => setInviteDraft({ ...inviteDraft, name: event.target.value })} /></label>
+            <label>邮箱<input type="email" value={inviteDraft.email} required placeholder="family@example.com"
+              onChange={(event) => setInviteDraft({ ...inviteDraft, email: event.target.value })} /></label>
+            <label>权限<select value={inviteDraft.role}
+              onChange={(event) => setInviteDraft({
+                ...inviteDraft,
+                role: event.target.value as "contributor" | "viewer",
+              })}>
+              <option value="viewer">家庭成员：查看和播放</option>
+              <option value="contributor">记录者：采访、整理和编辑</option>
+            </select></label>
+            <button className="primary-button" disabled={busy}>{busy ? "正在添加…" : "加入家庭名单"}</button>
+          </form>}
+
+          <div className="family-section">
+            <div className="section-heading"><div><span className="section-kicker">家庭成员</span>
+              <h2>谁可以进入这里</h2></div>
+              <button onClick={copyFamilyLink}>复制家庭链接</button></div>
+            <div className="member-list">{archive.members.map((member) => (
+              <article className="member-row" key={member.id}>
+                <span className="member-avatar">{member.name.slice(0, 1)}</span>
+                <div><strong>{member.name}{member.id === archive.viewer?.id && <small>你</small>}</strong>
+                  <p>{member.email}</p></div>
+                <span className={`member-status ${member.status}`}>{member.status === "active" ? "已加入" : "待加入"}</span>
+                <span className="role-badge">{roleLabel(member.role)}</span>
+                {canManageFamily && member.role !== "admin" &&
+                  <button className="remove-member" onClick={() => removeMember(member)} aria-label={`移除${member.name}`}>×</button>}
+              </article>
+            ))}</div>
+          </div>
+
+          <div className="family-section">
+            <div className="section-heading"><div><span className="section-kicker">长辈档案</span>
+              <h2>选择今天想记录的人</h2></div>
+              {canContribute && <button onClick={createElder}>＋ 新增长辈</button>}</div>
+            <div className="elder-grid">
+              {archive.elders.map((row) => readElder(row)).filter((item): item is Elder => Boolean(item)).map((profile) => (
+                <button key={profile.id} className={profile.id === elder?.id ? "elder-card active" : "elder-card"}
+                  onClick={() => selectElder(profile)}>
+                  <span>{profile.name.slice(0, 1)}</span><strong>{profile.name}</strong>
+                  <small>{profile.relationship}</small><i>{profile.id === elder?.id ? "正在记录" : "打开档案"}</i>
+                </button>
+              ))}
+              {canContribute && <button className="elder-card add-elder" onClick={createElder}>
+                <span>＋</span><strong>新增长辈</strong><small>为另一位家人建立档案</small>
+              </button>}
+            </div>
+          </div>
+
+          <div className="family-access-note"><strong>双重保护</strong>
+            <p>只有同时进入私人站点访问名单和家庭成员名单的人，才能查看资料。邀请不会把档案公开给陌生人。</p></div>
         </section>
       )}
 
       {screen === "profile" && (
         <section className="page form-page">
-          <button className="back-button" onClick={() => navigate("home")}>← 返回</button>
-          <div className="page-title"><span className="section-kicker">第一步</span><h1>认识这位长辈</h1>
+          <button className="back-button" onClick={() => navigate(archive.elders.length ? "family" : "home")}>← 返回</button>
+          <div className="page-title"><span className="section-kicker">{elderDraft.id ? "长辈档案" : "新增长辈"}</span><h1>认识这位长辈</h1>
             <p>只需要几项基本信息，用来让访谈问题更贴近他。以后都可以修改。</p></div>
           <form className="profile-form" onSubmit={saveElder}>
-            <label>我平时怎样称呼他？<input required value={elderDraft.name}
+            <label>家里平时怎样称呼他？<input required value={elderDraft.name}
               onChange={(event) => setElderDraft({ ...elderDraft, name: event.target.value })}
               placeholder="例如：外婆、爸爸、三爷爷" /></label>
-            <label>我们的关系<input required value={elderDraft.relationship}
+            <label>在家庭中的关系<input required value={elderDraft.relationship}
               onChange={(event) => setElderDraft({ ...elderDraft, relationship: event.target.value })}
-              placeholder="例如：我是她的外孙女" /></label>
+              placeholder="例如：妈妈的母亲，我们叫她外婆" /></label>
             <div className="field-pair">
               <label>出生年份<input inputMode="numeric" value={elderDraft.birthYear}
                 onChange={(event) => setElderDraft({ ...elderDraft, birthYear: event.target.value })}
@@ -764,7 +989,7 @@ export default function MemoryApp() {
         <section className="page archive-page">
           <div className="page-title archive-title"><span className="section-kicker">家庭记忆档案</span>
             <h1>{elder ? `${elder.name}的生命故事` : "还没有建立档案"}</h1>
-            <p>{archive.interviews.length}次访谈 · {archive.stories.length}段故事</p></div>
+            <p>{elderInterviews.length}次访谈 · {elderStoryRows.length}段故事</p></div>
           <label className="search-box"><span>⌕</span><input value={search}
             onChange={(event) => setSearch(event.target.value)} placeholder="搜索时间、地点、人物或一句话" /></label>
           {selectedStory ? <article className="story-detail">
@@ -789,7 +1014,7 @@ export default function MemoryApp() {
           </div> : <div className="empty-state"><span>一页</span>
             <h2>{search ? "没有找到相关故事" : "第一段故事，等你们慢慢说"}</h2>
             <p>{search ? "试试搜索另一个时间、地点或人物。" : "完成一次访谈并确认内容后，故事会出现在这里。"}</p>
-            {!search && <button className="primary-button" onClick={() => navigate(elder ? "plan" : "profile")}>开始第一次访谈</button>}
+            {!search && canContribute && <button className="primary-button" onClick={() => navigate(elder ? "plan" : "profile")}>开始第一次访谈</button>}
           </div>}
         </section>
       )}
@@ -800,13 +1025,16 @@ export default function MemoryApp() {
             <p>家庭记忆属于家庭。你可以随时完整带走，也可以彻底删除。</p></div>
           <div className="setting-card"><span className="setting-icon">包</span><div><h2>导出完整档案</h2>
             <p>打包下载长辈资料、访谈文字、故事卡和全部录音。</p></div>
-            <button onClick={exportArchive} disabled={busy || !elder}>{busy ? "处理中…" : "导出 ZIP"}</button></div>
+            <button onClick={exportArchive} disabled={busy || !elder || !canManageFamily}>{busy ? "处理中…" : "导出 ZIP"}</button></div>
           <div className="setting-card"><span className="setting-icon">人</span><div><h2>修改长辈档案</h2>
             <p>更新称呼、出生地、聊天习惯和不适合询问的内容。</p></div>
-            <button onClick={() => { setElderDraft(elder ?? EMPTY_ELDER); navigate("profile"); }}>修改</button></div>
+            <button disabled={!canContribute} onClick={() => { setElderDraft(elder ?? EMPTY_ELDER); navigate("profile"); }}>修改</button></div>
+          <div className="setting-card"><span className="setting-icon">家</span><div><h2>家庭成员与权限</h2>
+            <p>邀请记录者和查看者，管理谁可以进入家庭空间。</p></div>
+            <button onClick={() => navigate("family")}>管理</button></div>
           <div className="setting-card danger-card"><span className="setting-icon">删</span><div><h2>删除全部资料</h2>
             <p>永久删除档案、故事和云端录音。此操作无法恢复。</p></div>
-            <button onClick={deleteArchive} disabled={busy || !elder}>删除</button></div>
+            <button onClick={deleteArchive} disabled={busy || !elder || !canManageFamily}>删除</button></div>
           <div className="principles-card"><h2>我们的记录原则</h2><p>原始录音不会被AI改写覆盖。</p>
             <p>AI整理必须经过你的确认，才会成为档案。</p><p>不确定的事实标记“待确认”，不替长辈补造经历。</p>
             <p>Agent帮助倾听，不冒充你的亲人。</p></div>
@@ -816,8 +1044,9 @@ export default function MemoryApp() {
       {screen !== "interview" && <nav className="bottom-nav" aria-label="主要功能">
         <button className={screen === "home" ? "active" : ""} onClick={() => navigate("home")}><span>⌂</span>首页</button>
         <button className={screen === "plan" || screen === "review" ? "active" : ""}
-          onClick={() => navigate(elder ? "plan" : "profile")}><span>●</span>访谈</button>
+          onClick={() => navigate(canContribute ? (elder ? "plan" : "profile") : "archive")}><span>●</span>访谈</button>
         <button className={screen === "archive" ? "active" : ""} onClick={() => navigate("archive")}><span>册</span>档案</button>
+        <button className={screen === "family" ? "active" : ""} onClick={() => navigate("family")}><span>家</span>家人</button>
         <button className={screen === "settings" || screen === "profile" ? "active" : ""}
           onClick={() => navigate("settings")}><span>···</span>设置</button>
       </nav>}

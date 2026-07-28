@@ -34,7 +34,8 @@ body {
 
 button,
 input,
-textarea {
+textarea,
+select {
   font: inherit;
 }
 
@@ -44,7 +45,8 @@ button {
 
 button:focus-visible,
 input:focus-visible,
-textarea:focus-visible {
+textarea:focus-visible,
+select:focus-visible {
   outline: 3px solid rgba(49, 95, 75, 0.24);
   outline-offset: 2px;
 }
@@ -100,6 +102,7 @@ textarea:focus-visible {
 }
 
 .brand,
+.family-chip,
 .profile-chip,
 .back-button,
 .section-heading button,
@@ -134,6 +137,58 @@ textarea:focus-visible {
   background: var(--white);
   border: 1px solid var(--line);
   font-size: 13px;
+}
+
+.family-chip {
+  min-height: 42px;
+  padding: 4px 10px 4px 6px;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border-radius: 14px;
+  background: rgba(255, 253, 248, 0.88);
+  border: 1px solid var(--line);
+  cursor: pointer;
+}
+
+.mini-avatar-stack,
+.large-avatar-stack {
+  display: flex;
+  align-items: center;
+}
+
+.mini-avatar-stack i {
+  width: 25px;
+  height: 25px;
+  margin-right: -7px;
+  display: grid;
+  place-items: center;
+  border: 2px solid var(--white);
+  border-radius: 50%;
+  color: var(--green-dark);
+  background: var(--green-soft);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 800;
+}
+
+.family-chip-copy {
+  display: grid;
+  gap: 1px;
+  text-align: left;
+}
+
+.family-chip-copy strong {
+  max-width: 105px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+}
+
+.family-chip-copy small {
+  color: var(--muted);
+  font-size: 9px;
 }
 
 .topbar-actions {
@@ -404,7 +459,7 @@ textarea:focus-visible {
   min-height: 76px;
   padding: 8px 14px max(8px, env(safe-area-inset-bottom));
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(5, 1fr);
   position: fixed;
   z-index: 30;
   left: 50%;
@@ -1231,6 +1286,302 @@ textarea::placeholder {
   margin-top: 16px;
 }
 
+.family-page {
+  display: grid;
+  gap: 24px;
+}
+
+.family-page-heading {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 20px;
+}
+
+.family-page-heading h1 {
+  margin: 0;
+  font-family: "STKaiti", "KaiTi", serif;
+  font-size: clamp(32px, 7vw, 46px);
+}
+
+.family-page-heading p {
+  max-width: 520px;
+  margin: 10px 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.text-button {
+  flex: 0 0 auto;
+  padding: 9px 12px;
+  border: 1px solid var(--line);
+  border-radius: 11px;
+  color: var(--green);
+  background: var(--white);
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.family-overview-card {
+  padding: 20px;
+  display: grid;
+  grid-template-columns: auto 1fr auto;
+  align-items: center;
+  gap: 17px;
+  border-radius: 22px;
+  color: #f8f4ec;
+  background:
+    radial-gradient(circle at 90% 0, rgba(255, 255, 255, 0.14), transparent 12rem),
+    var(--green-dark);
+}
+
+.large-avatar-stack span {
+  width: 42px;
+  height: 42px;
+  margin-right: -11px;
+  display: grid;
+  place-items: center;
+  border: 3px solid var(--green-dark);
+  border-radius: 50%;
+  color: var(--green-dark);
+  background: #e9efe6;
+  font-weight: 800;
+}
+
+.family-overview-card strong {
+  font-size: 15px;
+}
+
+.family-overview-card p {
+  margin: 5px 0 0;
+  color: rgba(248, 244, 236, 0.72);
+  font-size: 12px;
+}
+
+.invite-card {
+  padding: 22px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 14px;
+  border: 1px solid #dfc4ae;
+  border-radius: 20px;
+  background: linear-gradient(135deg, var(--white), #f7eade);
+}
+
+.invite-card > div,
+.invite-card .primary-button {
+  grid-column: 1 / -1;
+}
+
+.invite-card h2 {
+  margin: 0;
+  font-family: "STKaiti", "KaiTi", serif;
+  font-size: 25px;
+}
+
+.invite-card > div p {
+  margin: 6px 0 0;
+  color: var(--muted);
+  font-size: 12px;
+}
+
+.invite-card label {
+  display: grid;
+  gap: 7px;
+  font-size: 12px;
+  font-weight: 700;
+}
+
+.invite-card input,
+.invite-card select {
+  width: 100%;
+  min-height: 46px;
+  padding: 0 12px;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: var(--white);
+}
+
+.family-section {
+  display: grid;
+  gap: 12px;
+}
+
+.member-list {
+  display: grid;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  overflow: hidden;
+  background: var(--white);
+}
+
+.member-row {
+  min-height: 72px;
+  padding: 12px 14px;
+  display: grid;
+  grid-template-columns: 42px minmax(0, 1fr) auto auto auto;
+  align-items: center;
+  gap: 11px;
+}
+
+.member-row + .member-row {
+  border-top: 1px solid var(--line);
+}
+
+.member-avatar {
+  width: 40px;
+  height: 40px;
+  display: grid;
+  place-items: center;
+  border-radius: 13px;
+  color: var(--green-dark);
+  background: var(--green-soft);
+  font-weight: 800;
+}
+
+.member-row strong {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  font-size: 14px;
+}
+
+.member-row strong small {
+  padding: 2px 6px;
+  border-radius: 999px;
+  color: var(--orange);
+  background: var(--orange-soft);
+  font-size: 9px;
+}
+
+.member-row p {
+  margin: 4px 0 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 11px;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.member-status,
+.role-badge {
+  padding: 5px 8px;
+  border-radius: 999px;
+  font-size: 10px;
+  font-weight: 700;
+}
+
+.member-status {
+  color: #8d602c;
+  background: #f4ead5;
+}
+
+.member-status.active {
+  color: var(--green-dark);
+  background: var(--green-soft);
+}
+
+.role-badge {
+  color: var(--muted);
+  border: 1px solid var(--line);
+}
+
+.remove-member {
+  width: 28px;
+  height: 28px;
+  border: 0;
+  border-radius: 50%;
+  color: var(--muted);
+  background: var(--paper);
+  cursor: pointer;
+}
+
+.elder-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 11px;
+}
+
+.elder-card {
+  min-height: 166px;
+  padding: 18px 12px;
+  display: grid;
+  justify-items: center;
+  align-content: center;
+  gap: 7px;
+  border: 1px solid var(--line);
+  border-radius: 18px;
+  background: var(--white);
+  cursor: pointer;
+}
+
+.elder-card.active {
+  border-color: var(--green);
+  box-shadow: inset 0 0 0 1px var(--green);
+  background: #f3f7f1;
+}
+
+.elder-card > span {
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  color: #fff;
+  background: var(--green);
+  font-family: "STKaiti", "KaiTi", serif;
+  font-size: 21px;
+}
+
+.elder-card strong {
+  margin-top: 3px;
+  font-size: 15px;
+}
+
+.elder-card small {
+  color: var(--muted);
+  font-size: 10px;
+}
+
+.elder-card i {
+  color: var(--orange);
+  font-size: 10px;
+  font-style: normal;
+  font-weight: 700;
+}
+
+.add-elder {
+  border-style: dashed;
+  color: var(--muted);
+}
+
+.add-elder > span {
+  color: var(--green);
+  background: var(--green-soft);
+}
+
+.family-access-note {
+  padding: 16px 18px;
+  display: flex;
+  align-items: flex-start;
+  gap: 14px;
+  border-radius: 15px;
+  color: var(--green-dark);
+  background: var(--green-soft);
+}
+
+.family-access-note strong {
+  flex: 0 0 auto;
+  font-size: 12px;
+}
+
+.family-access-note p {
+  margin: 0;
+  font-size: 11px;
+  line-height: 1.6;
+}
+
 .settings-page {
   display: grid;
   gap: 13px;
@@ -1375,6 +1726,15 @@ textarea::placeholder {
     gap: 6px;
   }
 
+  .family-chip {
+    padding-right: 6px;
+  }
+
+  .family-chip-copy,
+  .elder-chip {
+    display: none;
+  }
+
   .script-switch button {
     min-width: 37px;
     padding-inline: 6px;
@@ -1391,8 +1751,45 @@ textarea::placeholder {
 
   .field-pair,
   .prep-grid,
-  .story-meta-inputs {
+  .story-meta-inputs,
+  .invite-card {
     grid-template-columns: 1fr;
+  }
+
+  .family-page-heading,
+  .family-access-note {
+    flex-direction: column;
+  }
+
+  .family-overview-card {
+    grid-template-columns: auto 1fr;
+  }
+
+  .family-overview-card .soft-button {
+    grid-column: 1 / -1;
+  }
+
+  .member-row {
+    grid-template-columns: 38px minmax(0, 1fr) auto;
+    gap: 9px;
+  }
+
+  .member-status {
+    display: none;
+  }
+
+  .role-badge {
+    grid-column: 2;
+    justify-self: start;
+  }
+
+  .remove-member {
+    grid-column: 3;
+    grid-row: 2;
+  }
+
+  .elder-grid {
+    grid-template-columns: repeat(2, 1fr);
   }
 
   .setting-card {
