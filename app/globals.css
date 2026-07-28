@@ -136,6 +136,40 @@ textarea:focus-visible {
   font-size: 13px;
 }
 
+.topbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+}
+
+.script-switch {
+  padding: 3px;
+  display: flex;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  background: rgba(255, 253, 248, 0.8);
+}
+
+.script-switch button {
+  min-width: 42px;
+  min-height: 28px;
+  padding: 0 8px;
+  border: 0;
+  border-radius: 999px;
+  color: var(--muted);
+  background: transparent;
+  cursor: pointer;
+  font-size: 11px;
+  font-weight: 700;
+}
+
+.script-switch button.active {
+  color: #fff;
+  background: var(--green);
+  box-shadow: 0 3px 9px rgba(35, 72, 56, 0.16);
+}
+
 .profile-chip span {
   width: 28px;
   height: 28px;
@@ -1329,6 +1363,23 @@ textarea::placeholder {
 }
 
 @media (max-width: 520px) {
+  .topbar {
+    padding-inline: 14px;
+  }
+
+  .brand > span:last-child {
+    display: none;
+  }
+
+  .topbar-actions {
+    gap: 6px;
+  }
+
+  .script-switch button {
+    min-width: 37px;
+    padding-inline: 6px;
+  }
+
   .today-card {
     align-items: flex-start;
     flex-direction: column;

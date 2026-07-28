@@ -1,4 +1,5 @@
 import { getRuntimeEnv } from "@/db/memory-store";
+import { simplifyData, toSimplified } from "@/lib/chinese";
 
 type AgentRequest = {
   kind?: "plan" | "organize" | "followup";
@@ -144,20 +145,27 @@ async function callOpenAI(body: AgentRequest) {
   if (!response.ok) return null;
   const data = (await response.json()) as { output_text?: string };
   if (!data.output_text) return null;
-  return JSON.parse(data.output_text) as Record<string, unknown>;
+  return simplifyData(
+    JSON.parse(data.output_text) as Record<string, unknown>,
+  );
 }
 
 export async function POST(request: Request) {
   try {
-    const body = (await request.json()) as AgentRequest;
+    const body = simplifyData((await request.json()) as AgentRequest);
     const aiResult = await callOpenAI(body).catch(() => null);
-    if (aiResult) return Response.json({ ...aiResult, source: "AI整理" });
+    if (aiResult) {
+      return Response.json(simplifyData({ ...aiResult, source: "AI整理" }));
+    }
 
     if (body.kind === "plan") {
       return Response.json(fallbackPlan(body));
     }
     return Response.json(
-      fallbackOrganize(body.transcript ?? "", body.theme || "一次访谈"),
+      fallbackOrganize(
+        toSimplified(body.transcript ?? ""),
+        toSimplified(body.theme || "一次访谈"),
+      ),
     );
   } catch (error) {
     return Response.json(

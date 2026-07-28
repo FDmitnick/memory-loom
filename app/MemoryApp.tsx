@@ -1,7 +1,22 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import {
+  cloneElement,
+  isValidElement,
+  useCallback,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactElement,
+  type ReactNode,
+} from "react";
 import { strToU8, zipSync } from "fflate";
+import {
+  convertChinese,
+  toSimplified,
+  type ChineseScript,
+} from "@/lib/chinese";
 
 type Screen = "home" | "profile" | "plan" | "interview" | "review" | "archive" | "settings";
 type Elder = {
@@ -76,16 +91,48 @@ const EMPTY_ELDER: Elder = {
   boundaries: "",
 };
 
+const LOCALIZED_PROPS = ["placeholder", "aria-label", "title", "alt"] as const;
+
+function localizeNode(node: ReactNode, script: ChineseScript): ReactNode {
+  if (typeof node === "string") return convertChinese(node, script);
+  if (Array.isArray(node)) {
+    return node.map((child) => localizeNode(child, script));
+  }
+  if (!isValidElement(node)) return node;
+
+  const element = node as ReactElement<Record<string, unknown>>;
+  const props = element.props;
+  if (props["data-no-script"] === true) return element;
+
+  const nextProps: Record<string, unknown> = {};
+  if ("children" in props) {
+    nextProps.children = localizeNode(props.children as ReactNode, script);
+  }
+  for (const prop of LOCALIZED_PROPS) {
+    if (typeof props[prop] === "string") {
+      nextProps[prop] = convertChinese(props[prop], script);
+    }
+  }
+  if (
+    (element.type === "input" || element.type === "textarea") &&
+    typeof props.value === "string"
+  ) {
+    nextProps.value = convertChinese(props.value, script);
+  }
+
+  return cloneElement(element, nextProps);
+}
+
 function readElder(row: Record<string, unknown> | null): Elder | null {
   if (!row) return null;
   return {
     id: String(row.id ?? ""),
-    name: String(row.name ?? ""),
-    relationship: String(row.relationship ?? ""),
+    name: toSimplified(String(row.name ?? "")),
+    relationship: toSimplified(String(row.relationship ?? "")),
     birthYear: String(row.birth_year ?? ""),
-    birthPlace: String(row.birth_place ?? ""),
-    personality: String(row.personality ?? ""),
-    boundaries: String(row.boundaries ?? ""),
+    birthPlace: toSimplified(String(row.birth_place ?? "")),
+    personality: toSimplified(String(row.personality ?? "")),
+    boundaries: toSimplified(String(row.boundaries ?? "")),
   };
 }
 
@@ -93,12 +140,12 @@ function readStory(row: ArchiveData["stories"][number]): Story {
   return {
     id: row.id,
     interview_id: row.interview_id,
-    title: row.title,
-    body: row.body,
-    timeLabel: String(row.time_label ?? "时间待确认"),
-    location: String(row.location ?? ""),
-    people: String(row.people ?? ""),
-    quote: String(row.quote ?? ""),
+    title: toSimplified(row.title),
+    body: toSimplified(row.body),
+    timeLabel: toSimplified(String(row.time_label ?? "时间待确认")),
+    location: toSimplified(String(row.location ?? "")),
+    people: toSimplified(String(row.people ?? "")),
+    quote: toSimplified(String(row.quote ?? "")),
   };
 }
 
@@ -127,6 +174,8 @@ function downloadBlob(blob: Blob, filename: string) {
 
 export default function MemoryApp() {
   const [screen, setScreen] = useState<Screen>("home");
+  const [script, setScript] = useState<ChineseScript>("simplified");
+  const [scriptPreferenceLoaded, setScriptPreferenceLoaded] = useState(false);
   const [archive, setArchive] = useState<ArchiveData>({ elder: null, interviews: [], stories: [] });
   const [elder, setElder] = useState<Elder | null>(null);
   const [elderDraft, setElderDraft] = useState<Elder>(EMPTY_ELDER);
@@ -178,6 +227,19 @@ export default function MemoryApp() {
   useEffect(() => {
     queueMicrotask(() => void loadArchive());
   }, [loadArchive]);
+  useEffect(() => {
+    queueMicrotask(() => {
+      const saved = window.localStorage.getItem("memory-loom-chinese-script");
+      if (saved === "simplified" || saved === "traditional") {
+        setScript(saved);
+      }
+      setScriptPreferenceLoaded(true);
+    });
+  }, []);
+  useEffect(() => {
+    if (!scriptPreferenceLoaded) return;
+    window.localStorage.setItem("memory-loom-chinese-script", script);
+  }, [script, scriptPreferenceLoaded]);
   useEffect(() => { transcriptRef.current = transcript; }, [transcript]);
   useEffect(() => () => {
     if (timerRef.current) clearInterval(timerRef.current);
@@ -188,7 +250,7 @@ export default function MemoryApp() {
   const filteredStories = useMemo(() => {
     const stories = archive.stories.map(readStory);
     if (!search.trim()) return stories;
-    const keyword = search.trim().toLowerCase();
+    const keyword = toSimplified(search.trim()).toLowerCase();
     return stories.filter((story) =>
       [story.title, story.body, story.timeLabel, story.location, story.people, story.quote]
         .join(" ").toLowerCase().includes(keyword),
@@ -290,7 +352,7 @@ export default function MemoryApp() {
       let interimText = "";
       for (let index = event.resultIndex; index < event.results.length; index += 1) {
         const result = event.results[index];
-        if (result.isFinal) finalText += result[0].transcript;
+        if (result.isFinal) finalText += toSimplified(result[0].transcript);
         else interimText += result[0].transcript;
       }
       if (finalText) {
@@ -337,7 +399,12 @@ export default function MemoryApp() {
       const response = await fetch("/api/agent", {
         method: "POST",
         headers: { "content-type": "application/json" },
-        body: JSON.stringify({ kind: "organize", elder, theme, transcript: currentTranscript }),
+        body: JSON.stringify({
+          kind: "organize",
+          elder,
+          theme: toSimplified(theme),
+          transcript: toSimplified(currentTranscript),
+        }),
       });
       const result = (await response.json()) as {
         summary?: string; stories?: Story[]; followUps?: string[]; error?: string;
@@ -480,18 +547,44 @@ export default function MemoryApp() {
     return <main className="app-shell loading-screen"><div className="memory-mark">忆</div><p>正在打开家庭记忆档案……</p></main>;
   }
 
-  return (
-    <main className="app-shell">
+  return localizeNode((
+    <main
+      className="app-shell"
+      lang={script === "traditional" ? "zh-TW" : "zh-CN"}
+    >
       <header className="topbar">
         <button className="brand" onClick={() => navigate("home")} aria-label="回到首页">
           <span className="brand-mark">忆</span><span>岁月留声</span>
         </button>
-        <button className="profile-chip" onClick={() => {
-          setElderDraft(elder ?? EMPTY_ELDER);
-          navigate("profile");
-        }}>
-          <span>{elder?.name?.slice(0, 1) || "+"}</span>{elder ? elder.name : "建立档案"}
-        </button>
+        <div className="topbar-actions">
+          <div
+            className="script-switch"
+            role="group"
+            aria-label="中文字体"
+            data-no-script={true}
+          >
+            <button
+              className={script === "simplified" ? "active" : ""}
+              onClick={() => setScript("simplified")}
+              aria-pressed={script === "simplified"}
+            >
+              简体
+            </button>
+            <button
+              className={script === "traditional" ? "active" : ""}
+              onClick={() => setScript("traditional")}
+              aria-pressed={script === "traditional"}
+            >
+              繁體
+            </button>
+          </div>
+          <button className="profile-chip" onClick={() => {
+            setElderDraft(elder ?? EMPTY_ELDER);
+            navigate("profile");
+          }}>
+            <span>{elder?.name?.slice(0, 1) || "+"}</span>{elder ? elder.name : "建立档案"}
+          </button>
+        </div>
       </header>
 
       {notice && <div className="toast success-toast">{notice}</div>}
@@ -729,5 +822,5 @@ export default function MemoryApp() {
           onClick={() => navigate("settings")}><span>···</span>设置</button>
       </nav>}
     </main>
-  );
+  ), script);
 }

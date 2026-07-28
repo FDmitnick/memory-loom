@@ -1,4 +1,5 @@
 import { ensureMemorySchema, getRuntimeEnv } from "@/db/memory-store";
+import { simplifyData, toSimplified } from "@/lib/chinese";
 
 type StoryInput = {
   id?: string;
@@ -11,7 +12,9 @@ type StoryInput = {
 };
 
 function clean(value: unknown, max = 10000) {
-  return typeof value === "string" ? value.trim().slice(0, max) : "";
+  return typeof value === "string"
+    ? toSimplified(value).trim().slice(0, max)
+    : "";
 }
 
 export async function GET() {
@@ -24,11 +27,11 @@ export async function GET() {
       DB.prepare("SELECT * FROM stories ORDER BY created_at DESC").all(),
     ]);
 
-    return Response.json({
+    return Response.json(simplifyData({
       elder: elderResult.results[0] ?? null,
       interviews: interviewResult.results,
       stories: storyResult.results,
-    });
+    }));
   } catch (error) {
     return Response.json(
       { error: error instanceof Error ? error.message : "档案读取失败" },

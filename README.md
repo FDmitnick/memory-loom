@@ -52,6 +52,8 @@ current data model does not isolate records by account.
 - Adaptive follow-up prompts during the conversation
 - Mobile browser audio recording
 - Live Chinese speech recognition when supported by the browser
+- Simplified Chinese by default, with a saved Simplified/Traditional display switch
+- Automatic Simplified Chinese normalization before transcripts are saved
 - Editable transcript and summary
 - Human-confirmed story cards and life timeline
 - Search by time, place, person, or phrase
@@ -219,6 +221,8 @@ Memory Loom（岁月留声）帮助一位家庭成员采访一位长辈，把一
 - 根据谈话内容提示追问方向
 - 手机浏览器录音
 - 浏览器支持时进行中文实时语音识别
+- 默认使用简体中文，并支持记住“简体 / 繁體”显示切换
+- 识别文字和档案内容在保存前统一规范为简体中文
 - 编辑和校正原话、摘要
 - 经人工确认的故事卡和人生时间线
 - 按时间、地点、人物和关键词搜索
