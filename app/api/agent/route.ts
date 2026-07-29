@@ -3,7 +3,7 @@ import { canEdit, getFamilyViewer } from "@/db/family-access";
 import { simplifyData, toSimplified } from "@/lib/chinese";
 
 type AgentRequest = {
-  kind?: "plan" | "organize" | "followup";
+  kind?: "plan" | "organize" | "followup" | "personal-organize";
   elder?: {
     name?: string;
     relationship?: string;
@@ -109,15 +109,73 @@ function fallbackOrganize(transcript: string, theme: string) {
   };
 }
 
+function fallbackPersonalOrganize(transcript: string) {
+  const normalized = toSimplified(transcript).replace(/\s+/g, " ").trim();
+  const sentences = normalized
+    .split(/(?<=[。！？!?])/)
+    .map((part) => part.trim())
+    .filter(Boolean);
+  const isReflection =
+    /(我觉得|我发现|我明白|我意识到|感悟|道理|应该|人生|生活)/.test(normalized);
+  const isPast =
+    /(小时候|以前|当年|那时候|曾经|记得|过去|上学时|年轻时)/.test(normalized);
+  const isIdea = /(想到一个|有个想法|灵感|打算|计划|也许可以)/.test(normalized);
+  const isPerson =
+    /(爸爸|妈妈|爷爷|奶奶|外公|外婆|老师|朋友|同事|家人)/.test(normalized);
+  const category = isReflection
+    ? "生活感悟"
+    : isPast
+      ? "过去记忆"
+      : isIdea
+        ? "灵感想法"
+        : isPerson
+          ? "人物片段"
+          : "当下日常";
+  const year = normalized.match(
+    /(?:19|20)\d{2}年|[一二三四五六七八九零〇]{4}年|小时候|上学时|年轻时/,
+  )?.[0];
+  const firstSentence = sentences[0]?.replace(/[。！？!?]$/, "") || "";
+  const title =
+    firstSentence.length > 24
+      ? `${firstSentence.slice(0, 24)}…`
+      : firstSentence || "今天留下的一段话";
+  const tags = [
+    isPast ? "回忆" : "",
+    isReflection ? "感悟" : "",
+    isPerson ? "人物" : "",
+    isIdea ? "想法" : "",
+  ].filter(Boolean);
+
+  return {
+    title,
+    summary:
+      sentences.slice(0, 3).join("") ||
+      "这段记录还没有足够的文字，可以稍后继续补充。",
+    category,
+    tags: tags.length ? tags : ["随手记录"],
+    occurredAt: year || "",
+    people: "",
+    place: "",
+    mood: "",
+    source: "基础整理",
+  };
+}
+
 async function callOpenAI(body: AgentRequest) {
   const apiKey = getRuntimeEnv().OPENAI_API_KEY;
   if (!apiKey) return null;
 
   const isPlan = body.kind === "plan";
+  const isPersonal = body.kind === "personal-organize";
   const instructions = isPlan
     ? `你是温和的家庭口述史访谈顾问。根据长辈资料生成一次中文访谈计划。
 不要医疗诊断，不要求回答敏感问题。返回严格JSON：
 {"opening":"开场白","preparation":"准备建议","careNote":"照顾提醒","questions":["问题"]}`
+    : isPersonal
+      ? `你是一位严谨、克制的私人记忆整理员。只依据用户原话整理，不补造事实，不改变观点。
+自动判断最贴切的一类：过去记忆、生活感悟、当下日常、人物片段、灵感想法。
+摘要要忠于原意，保留个人语气；不确定的时间、人物和地点留空。返回严格JSON：
+{"title":"简洁具体的标题","summary":"忠于原话的摘要","category":"五类之一","tags":["2至5个短标签"],"occurredAt":"原文明确出现的时间或空字符串","people":"原文明确出现的人物或空字符串","place":"原文明确出现的地点或空字符串","mood":"原文可明确判断的情绪或空字符串"}`
     : `你是严谨的家庭口述史整理员。只能依据访谈原文，不得补造事实。
 不确定的信息标记“待确认”。返回严格JSON：
 {"summary":"摘要","stories":[{"id":"随机字符串","title":"标题","body":"忠于原意的故事","timeLabel":"时间或待确认","location":"","people":"","quote":"原话短句"}],"followUps":["下次可追问"]}`;
@@ -128,7 +186,9 @@ async function callOpenAI(body: AgentRequest) {
         theme: body.theme,
         durationMinutes: body.durationMinutes,
       })
-    : JSON.stringify({ theme: body.theme, transcript: body.transcript?.slice(0, 50000) });
+    : isPersonal
+      ? JSON.stringify({ transcript: body.transcript?.slice(0, 50000) })
+      : JSON.stringify({ theme: body.theme, transcript: body.transcript?.slice(0, 50000) });
 
   const response = await fetch("https://api.openai.com/v1/responses", {
     method: "POST",
@@ -165,6 +225,11 @@ export async function POST(request: Request) {
 
     if (body.kind === "plan") {
       return Response.json(fallbackPlan(body));
+    }
+    if (body.kind === "personal-organize") {
+      return Response.json(
+        fallbackPersonalOrganize(toSimplified(body.transcript ?? "")),
+      );
     }
     return Response.json(
       fallbackOrganize(

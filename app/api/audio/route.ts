@@ -13,6 +13,7 @@ export async function POST(request: Request) {
     const form = await request.formData();
     const audio = form.get("audio");
     const interviewId = String(form.get("interviewId") ?? "").slice(0, 80);
+    const recordType = form.get("recordType") === "memory" ? "memory" : "interview";
     if (!(audio instanceof File) || !interviewId) {
       return Response.json({ error: "缺少录音文件" }, { status: 400 });
     }
@@ -24,7 +25,11 @@ export async function POST(request: Request) {
     }
 
     const { RECORDINGS } = getRuntimeEnv();
-    const audioKey = `interviews/${interviewId}/${Date.now()}.webm`;
+    const folder =
+      recordType === "memory"
+        ? `memories/${viewer.id}/${interviewId}`
+        : `interviews/${interviewId}`;
+    const audioKey = `${folder}/${Date.now()}.webm`;
     await RECORDINGS.put(audioKey, audio.stream(), {
       httpMetadata: { contentType: audio.type || "audio/webm" },
     });
@@ -47,7 +52,10 @@ export async function GET(request: Request) {
     const viewer = await getFamilyViewer(request);
     if (!viewer) return new Response("Forbidden", { status: 403 });
     const key = new URL(request.url).searchParams.get("key");
-    if (!key || !key.startsWith("interviews/")) {
+    if (
+      !key ||
+      (!key.startsWith("interviews/") && !key.startsWith("memories/"))
+    ) {
       return new Response("Not found", { status: 404 });
     }
     const object = await getRuntimeEnv().RECORDINGS.get(key);

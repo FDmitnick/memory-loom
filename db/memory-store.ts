@@ -34,6 +34,23 @@ export function ensureMemorySchema() {
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         last_seen_at TEXT
       )`),
+      DB.prepare(`CREATE TABLE IF NOT EXISTS memory_entries (
+        id TEXT PRIMARY KEY,
+        owner_email TEXT NOT NULL,
+        title TEXT NOT NULL,
+        original_text TEXT NOT NULL DEFAULT '',
+        summary TEXT NOT NULL DEFAULT '',
+        category TEXT NOT NULL DEFAULT '当下日常',
+        tags_json TEXT NOT NULL DEFAULT '[]',
+        occurred_at TEXT NOT NULL DEFAULT '',
+        people TEXT NOT NULL DEFAULT '',
+        place TEXT NOT NULL DEFAULT '',
+        mood TEXT NOT NULL DEFAULT '',
+        audio_key TEXT NOT NULL DEFAULT '',
+        audio_type TEXT NOT NULL DEFAULT '',
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`),
       DB.prepare(`CREATE TABLE IF NOT EXISTS elders (
         id TEXT PRIMARY KEY,
         name TEXT NOT NULL,
@@ -78,6 +95,9 @@ export function ensureMemorySchema() {
       ),
       DB.prepare(
         "CREATE INDEX IF NOT EXISTS family_members_family_idx ON family_members(family_id, created_at)",
+      ),
+      DB.prepare(
+        "CREATE INDEX IF NOT EXISTS memory_entries_owner_idx ON memory_entries(owner_email, created_at)",
       ),
     ]);
   })();

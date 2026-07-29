@@ -1,5 +1,5 @@
-import MemoryApp from "./MemoryApp";
+import PersonalMemoryApp from "./PersonalMemoryApp";
 
 export default function Home() {
-  return <MemoryApp />;
+  return <PersonalMemoryApp />;
 }

@@ -19,6 +19,24 @@ export const familyMembers = sqliteTable("family_members", {
   lastSeenAt: text("last_seen_at"),
 });
 
+export const memoryEntries = sqliteTable("memory_entries", {
+  id: text("id").primaryKey(),
+  ownerEmail: text("owner_email").notNull(),
+  title: text("title").notNull(),
+  originalText: text("original_text").notNull().default(""),
+  summary: text("summary").notNull().default(""),
+  category: text("category").notNull().default("当下日常"),
+  tagsJson: text("tags_json").notNull().default("[]"),
+  occurredAt: text("occurred_at").notNull().default(""),
+  people: text("people").notNull().default(""),
+  place: text("place").notNull().default(""),
+  mood: text("mood").notNull().default(""),
+  audioKey: text("audio_key").notNull().default(""),
+  audioType: text("audio_type").notNull().default(""),
+  createdAt: text("created_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+  updatedAt: text("updated_at").notNull().default(sql`CURRENT_TIMESTAMP`),
+});
+
 export const elders = sqliteTable("elders", {
   id: text("id").primaryKey(),
   name: text("name").notNull(),

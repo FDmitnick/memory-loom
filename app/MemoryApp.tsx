@@ -192,7 +192,7 @@ function downloadBlob(blob: Blob, filename: string) {
   URL.revokeObjectURL(url);
 }
 
-export default function MemoryApp() {
+export default function MemoryApp({ onExit }: { onExit?: () => void }) {
   const [screen, setScreen] = useState<Screen>("home");
   const [script, setScript] = useState<ChineseScript>("simplified");
   const [scriptPreferenceLoaded, setScriptPreferenceLoaded] = useState(false);
@@ -704,6 +704,7 @@ export default function MemoryApp() {
               繁體
             </button>
           </div>
+          {onExit ? <button className="personal-return-chip" onClick={onExit}>← 个人空间</button> :
           <button className="family-chip" onClick={() => navigate("family")}>
             <span className="mini-avatar-stack" aria-hidden="true">
               {archive.members.slice(0, 3).map((member) => (
@@ -714,7 +715,7 @@ export default function MemoryApp() {
               <strong>{archive.family?.name || "家庭空间"}</strong>
               <small>{archive.members.length}位成员</small>
             </span>
-          </button>
+          </button>}
           <button className="profile-chip elder-chip" onClick={() => {
             if (canContribute) {
               setElderDraft(elder ?? EMPTY_ELDER);
@@ -1029,9 +1030,9 @@ export default function MemoryApp() {
           <div className="setting-card"><span className="setting-icon">人</span><div><h2>修改长辈档案</h2>
             <p>更新称呼、出生地、聊天习惯和不适合询问的内容。</p></div>
             <button disabled={!canContribute} onClick={() => { setElderDraft(elder ?? EMPTY_ELDER); navigate("profile"); }}>修改</button></div>
-          <div className="setting-card"><span className="setting-icon">家</span><div><h2>家庭成员与权限</h2>
+          {!onExit && <div className="setting-card"><span className="setting-icon">家</span><div><h2>家庭成员与权限</h2>
             <p>邀请记录者和查看者，管理谁可以进入家庭空间。</p></div>
-            <button onClick={() => navigate("family")}>管理</button></div>
+            <button onClick={() => navigate("family")}>管理</button></div>}
           <div className="setting-card danger-card"><span className="setting-icon">删</span><div><h2>删除全部资料</h2>
             <p>永久删除档案、故事和云端录音。此操作无法恢复。</p></div>
             <button onClick={deleteArchive} disabled={busy || !elder || !canManageFamily}>删除</button></div>
@@ -1041,12 +1042,12 @@ export default function MemoryApp() {
         </section>
       )}
 
-      {screen !== "interview" && <nav className="bottom-nav" aria-label="主要功能">
+      {screen !== "interview" && <nav className={onExit ? "bottom-nav compact-nav" : "bottom-nav"} aria-label="主要功能">
         <button className={screen === "home" ? "active" : ""} onClick={() => navigate("home")}><span>⌂</span>首页</button>
         <button className={screen === "plan" || screen === "review" ? "active" : ""}
           onClick={() => navigate(canContribute ? (elder ? "plan" : "profile") : "archive")}><span>●</span>访谈</button>
         <button className={screen === "archive" ? "active" : ""} onClick={() => navigate("archive")}><span>册</span>档案</button>
-        <button className={screen === "family" ? "active" : ""} onClick={() => navigate("family")}><span>家</span>家人</button>
+        {!onExit && <button className={screen === "family" ? "active" : ""} onClick={() => navigate("family")}><span>家</span>家人</button>}
         <button className={screen === "settings" || screen === "profile" ? "active" : ""}
           onClick={() => navigate("settings")}><span>···</span>设置</button>
       </nav>}

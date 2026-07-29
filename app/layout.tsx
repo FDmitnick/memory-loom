@@ -12,8 +12,8 @@ export async function generateMetadata(): Promise<Metadata> {
     requestHeaders.get("x-forwarded-proto") ??
     (host.startsWith("localhost") ? "http" : "https");
   const imageUrl = `${protocol}://${host}/og.png`;
-  const title = "岁月留声｜家庭记忆档案";
-  const description = "陪长辈慢慢聊，把声音、原话和生命故事一起留下。";
+  const title = "岁月留声｜我的私人记忆空间";
+  const description = "随时说下此刻的想法，让AI帮你整理过去的记忆、生活感悟和日常片段。";
 
   return {
     title,
@@ -26,7 +26,7 @@ export async function generateMetadata(): Promise<Metadata> {
       title,
       description,
       type: "website",
-      images: [{ url: imageUrl, width: 1536, height: 1024, alt: "岁月留声" }],
+      images: [{ url: imageUrl, width: 1536, height: 1024, alt: "岁月留声私人记忆空间" }],
     },
     twitter: {
       card: "summary_large_image",
